@@ -1,0 +1,136 @@
+﻿/*
+// 64 потоки на групу (можна змінити під GPU)
+[numthreads(64,1,1)]
+void MainCS(uint3 DTid : SV_DispatchThreadID)
+{
+    uint ThreadsPerGroup = 64; // має відповідати numthreads.x
+    uint tileIndex = DTid.x;
+    if (tileIndex >= GridSize * GridSize) return;
+
+    uint tileX = tileIndex % GridSize;
+    uint tileY = tileIndex / GridSize;
+
+    // UV Bounding Box culling
+    float2 tileMinUV = float2(tileX, tileY)/GridSize;
+    float2 tileMaxUV = float2(tileX+1, tileY+1)/GridSize;
+    if (tileMaxUV.x < UVMin.x || tileMinUV.x > UVMax.x ||
+        tileMaxUV.y < UVMin.y || tileMinUV.y > UVMax.y)
+        return;
+
+    float angleRad = radians(-RotationDeg);
+    float cosA = cos(angleRad);
+    float sinA = sin(angleRad);
+
+    float maxSide = max(SizeUV.x, SizeUV.y);
+    float2 uniformSize = float2(maxSide, maxSide);
+
+    uint covered = 0;
+    uint threshold = SampleDensity*SampleDensity*CoveringThreshold;
+
+    for (uint i=0;i<SampleDensity;++i)
+    {
+        for (uint j=0;j<SampleDensity;++j)
+        {
+            float2 localUV = (float2(i,j)+0.5)/SampleDensity;
+            float2 tileUV = (float2(tileX,tileY)+localUV)/GridSize;
+
+            float2 centeredUV = tileUV-0.5;
+            float2 UV_uniform = centeredUV/uniformSize + AnchorUV;
+
+            float2 delta = UV_uniform - AnchorUV;
+            float2 rotated;
+            rotated.x = delta.x*cosA - delta.y*sinA;
+            rotated.y = delta.x*sinA + delta.y*cosA;
+            float2 UV_rotated = rotated + AnchorUV;
+
+            float2 UV_final;
+            UV_final.x = (UV_rotated.x-AnchorUV.x)/(SizeUV.x/maxSide)+AnchorUV.x;
+            UV_final.y = (UV_rotated.y-AnchorUV.y)/(SizeUV.y/maxSide)+AnchorUV.y;
+
+            if (all(UV_final >= 0.0) && all(UV_final <= 1.0))
+            {
+                if (SourceTexture.SampleLevel(SourceSampler, UV_final,0).a>0.01)
+                {
+                    covered++;
+                    if (covered>=threshold)
+                    {
+                        OutCoveredTiles.Append(tileIndex);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+}
+*/
+
+[numthreads(64,1,1)]
+void MainCS(uint3 DTid : SV_DispatchThreadID)
+{
+    uint tileIndex = DTid.x;
+    if (tileIndex >= GridSize * GridSize) return;
+
+    uint tileX = tileIndex % GridSize;
+    uint tileY = tileIndex / GridSize;
+
+    float2 tileMinUV = float2(tileX, tileY) / GridSize;
+    float2 tileMaxUV = float2(tileX + 1, tileY + 1) / GridSize;
+
+    if (tileMaxUV.x < UVMin.x || tileMinUV.x > UVMax.x ||
+        tileMaxUV.y < UVMin.y || tileMinUV.y > UVMax.y)
+    {
+        OutCoveredTiles[tileIndex] = 0;
+        return;
+    }
+
+    float angleRad = radians(-RotationDeg);
+    float cosA = cos(angleRad);
+    float sinA = sin(angleRad);
+
+    float maxSide = max(SizeUV.x, SizeUV.y);
+    float2 uniformSize = float2(maxSide, maxSide);
+
+    uint covered = 0;
+    uint threshold = (uint)ceil(
+        SampleDensity * SampleDensity * CoveringThreshold
+    );
+
+    for (uint i = 0; i < SampleDensity; ++i)
+    {
+        for (uint j = 0; j < SampleDensity; ++j)
+        {
+            float2 localUV = (float2(i, j) + 0.5) / SampleDensity;
+            float2 tileUV = (float2(tileX, tileY) + localUV) / GridSize;
+
+            float2 centeredUV = tileUV - 0.5;
+            float2 UV_uniform = centeredUV / uniformSize + AnchorUV;
+
+            float2 delta = UV_uniform - AnchorUV;
+            float2 rotated = float2(
+                delta.x * cosA - delta.y * sinA,
+                delta.x * sinA + delta.y * cosA
+            );
+
+            float2 UV_rotated = rotated + AnchorUV;
+
+            float2 UV_final;
+            UV_final.x = (UV_rotated.x - AnchorUV.x) / (SizeUV.x / maxSide) + AnchorUV.x;
+            UV_final.y = (UV_rotated.y - AnchorUV.y) / (SizeUV.y / maxSide) + AnchorUV.y;
+
+            if (all(UV_final >= 0.0) && all(UV_final <= 1.0))
+            {
+                if (SourceTexture.SampleLevel(SourceSampler, UV_final, 0).a > 0.01)
+                {
+                    covered++;
+                    if (covered >= threshold)
+                    {
+                        OutCoveredTiles[tileIndex] = 1;
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    OutCoveredTiles[tileIndex] = 0;
+}
