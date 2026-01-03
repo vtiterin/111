@@ -8,7 +8,7 @@
 	"Modules": [
 		{
 			"Name": "TileCoverageCSShaders",
-			"Type": "Runtime",
+			"Type": "Developer",
 			"LoadingPhase": "PreDefault"
 		},
 		{
