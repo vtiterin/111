@@ -22,8 +22,8 @@ public:
 		SHADER_PARAMETER(FVector2f, UVMax)
 	END_SHADER_PARAMETER_STRUCT()
 	
-	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters&)
+	/*static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters&)
 	{
 		return true;
-	}
+	}*/
 };

@@ -9,7 +9,7 @@
 		{
 			"Name": "TileCoverageCSShaders",
 			"Type": "Runtime",
-			"LoadingPhase": "PostConfigInit"
+			"LoadingPhase": "PreDefault"
 		},
 		{
 			"Name": "TileCoverageCS",
